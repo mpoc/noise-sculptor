@@ -684,16 +684,18 @@ const NoisePad = () => {
         </div>
       </div>
 
-      {/* Play button using shadcn UI Button with custom styling */}
+      {/* Play button with modern minimal style matching advanced button */}
       <Button
         onClick={(e) => togglePlay(e)}
-        className={`px-6 py-1.5 rounded-full text-sm font-medium h-auto ${
+        variant="ghost"
+        size="sm"
+        className={`rounded-full border border-gray-100 ${
           isPlaying
-            ? 'bg-black text-white hover:bg-black/90 border-transparent'
-            : 'bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-200'
-        }`}
+            ? 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+            : 'bg-gray-50 hover:bg-gray-100 text-gray-600'
+        } px-4 py-1 text-xs mx-auto shadow-none`}
       >
-        {isPlaying ? 'Stop' : 'Play'}
+        <span className="font-medium">{isPlaying ? 'Stop' : 'Play'}</span>
       </Button>
 
       {/* Minimal instruction - placed right below play button */}
