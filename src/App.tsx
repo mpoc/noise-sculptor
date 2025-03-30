@@ -287,7 +287,7 @@ const NoisePad = () => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    
+
     const width = canvas.width;
     const height = canvas.height;
 
@@ -407,44 +407,44 @@ const NoisePad = () => {
 
   // Animation ref to cancel animation frames if needed
   const randomAnimRef = useRef<number | null>(null);
-  
+
   // Generate random noise position with animation
   const generateRandomNoise = (e: React.MouseEvent) => {
     // Prevent event propagation so it doesn't trigger pad interaction
     e.stopPropagation();
-    
+
     // Cancel any existing animation
     if (randomAnimRef.current) {
       cancelAnimationFrame(randomAnimRef.current);
     }
-    
+
     // Generate random x and y positions
     const randomX = Math.random() * 100;
     const randomY = Math.random() * 100;
-    
+
     // Start position
     const startX = position.x;
     const startY = position.y;
-    
+
     // Animation settings
     const duration = 600; // ms
     const startTime = performance.now();
-    
+
     // Animation function
     const animate = (currentTime: number) => {
       const elapsed = currentTime - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      
+
       // Easing function (ease-out cubic)
       const eased = 1 - Math.pow(1 - progress, 3);
-      
+
       // Calculate new position
       const newX = startX + (randomX - startX) * eased;
       const newY = startY + (randomY - startY) * eased;
-      
+
       // Update position
       setPosition({ x: newX, y: newY });
-      
+
       // Continue animation if not done
       if (progress < 1) {
         randomAnimRef.current = requestAnimationFrame(animate);
@@ -452,48 +452,48 @@ const NoisePad = () => {
         randomAnimRef.current = null;
       }
     };
-    
+
     // Start animation
     randomAnimRef.current = requestAnimationFrame(animate);
   };
-  
+
   // Reset to center position with animation
   const resetPosition = (e: React.MouseEvent) => {
     // Prevent event propagation
     e.stopPropagation();
-    
+
     // Cancel any existing animation
     if (randomAnimRef.current) {
       cancelAnimationFrame(randomAnimRef.current);
     }
-    
+
     // Default center position
     const defaultX = 50;
     const defaultY = 50;
-    
+
     // Start position
     const startX = position.x;
     const startY = position.y;
-    
+
     // Animation settings
     const duration = 600; // ms
     const startTime = performance.now();
-    
+
     // Animation function
     const animate = (currentTime: number) => {
       const elapsed = currentTime - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      
+
       // Easing function (ease-out cubic)
       const eased = 1 - Math.pow(1 - progress, 3);
-      
+
       // Calculate new position
       const newX = startX + (defaultX - startX) * eased;
       const newY = startY + (defaultY - startY) * eased;
-      
+
       // Update position
       setPosition({ x: newX, y: newY });
-      
+
       // Continue animation if not done
       if (progress < 1) {
         randomAnimRef.current = requestAnimationFrame(animate);
@@ -501,11 +501,11 @@ const NoisePad = () => {
         randomAnimRef.current = null;
       }
     };
-    
+
     // Start animation
     randomAnimRef.current = requestAnimationFrame(animate);
   };
-  
+
   // Clean up animation on unmount
   useEffect(() => {
     return () => {
@@ -620,20 +620,20 @@ const NoisePad = () => {
     const middleY = 1 - topSide - bottomSide; // 1 at middle, 0 at extremes
 
     // Calculate noise color weights based on position
-    // White noise (flat EQ): strongest in the center
-    const whiteFactor = Math.pow(middleX * middleY, 0.5) * 1.5;
+    // White noise (flat EQ): strongest in the center but with less dominance
+    const whiteFactor = Math.pow(middleX * middleY, 0.5) * 0.7;
 
     // Pink noise (-3 dB/oct): LPF with mild slope, stronger in mid-left
-    const pinkFactor = leftSide * (middleY * 0.7 + topSide * 0.3);
+    const pinkFactor = Math.pow(Math.max(0, 1 - Math.hypot(position.x/100 - 0.15, position.y/100 - 0.35) / 0.4), 1.2) * 2;
 
     // Brown noise (-6 dB/oct): LPF with steep slope, stronger in bottom-left
-    const brownFactor = leftSide * (middleY * 0.3 + bottomSide * 0.7);
+    const brownFactor = Math.pow(Math.max(0, 1 - Math.hypot(position.x/100 - 0.15, position.y/100 - 0.85) / 0.4), 1.2) * 2;
 
     // Blue noise (+3 dB/oct): HPF with mild slope, stronger in mid-right
-    const blueFactor = rightSide * (middleY * 0.7 + bottomSide * 0.3);
+    const blueFactor = Math.pow(Math.max(0, 1 - Math.hypot(position.x/100 - 0.85, position.y/100 - 0.65) / 0.4), 1.2) * 2;
 
     // Violet noise (+6 dB/oct): HPF with steep slope, stronger in top-right
-    const violetFactor = rightSide * (middleY * 0.3 + topSide * 0.7);
+    const violetFactor = Math.pow(Math.max(0, 1 - Math.hypot(position.x/100 - 0.85, position.y/100 - 0.15) / 0.4), 1.2) * 2;
 
     // Normalize factors so they sum to 1
     const totalFactor = brownFactor + pinkFactor + whiteFactor + blueFactor + violetFactor;
@@ -726,17 +726,12 @@ const NoisePad = () => {
           onTouchStart={handlePadStart}
           style={{
             background: `
-              linear-gradient(to bottom,
-                rgba(150, 60, 200, 0.22) 0%,
-                rgba(245, 245, 245, 0.4) 50%,
-                rgba(160, 60, 45, 0.25) 100%
-              ),
-              linear-gradient(to right,
-                rgba(255, 50, 150, 0.3) 0%,
-                rgba(245, 245, 245, 0.4) 50%,
-                rgba(75, 115, 215, 0.3) 100%
-              ),
-              radial-gradient(circle at 50% 50%, rgba(245, 245, 245, 0.6), transparent 50%)
+              radial-gradient(circle at 15% 85%, rgba(160, 60, 45, 0.55), transparent 35%),
+              radial-gradient(circle at 15% 35%, rgba(255, 50, 150, 0.55), transparent 35%),
+              radial-gradient(circle at 50% 50%, rgba(245, 245, 245, 0.65), transparent 30%),
+              radial-gradient(circle at 85% 65%, rgba(75, 115, 215, 0.55), transparent 35%),
+              radial-gradient(circle at 85% 15%, rgba(150, 60, 200, 0.55), transparent 35%),
+              rgba(240, 240, 240, 0.6)
             `,
             border: '1px solid rgba(0,0,0,0.05)'
           }}
@@ -1008,7 +1003,7 @@ const NoisePad = () => {
                 </button>
               </div>
             </div>
-            
+
             {/* Reset position option */}
             <div className="mt-2 pt-2 border-t border-gray-100">
               <div className="flex justify-between items-center">
