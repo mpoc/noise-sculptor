@@ -7,7 +7,11 @@ import { Slider } from './components/ui/slider';
 
 const NoisePad = () => {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [position, setPosition] = useState({ x: 50, y: 50 });
+  // Initialize position from localStorage or default to center
+  const [position, setPosition] = useState(() => {
+    const savedPosition = localStorage.getItem('noisePosition');
+    return savedPosition ? JSON.parse(savedPosition) : { x: 50, y: 50 };
+  });
   const [filterValues, setFilterValues] = useState({
     frequency: 1000,
     type: "lowpass",
@@ -165,6 +169,11 @@ const NoisePad = () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
   }, []);
+
+  // Save position to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('noisePosition', JSON.stringify(position));
+  }, [position]);
 
   // Update filter values when position changes
   useEffect(() => {
@@ -383,7 +392,7 @@ const NoisePad = () => {
     setPosition({ x, y });
   };
 
-  // Random animation ref to cancel animation frames if needed
+  // Animation ref to cancel animation frames if needed
   const randomAnimRef = useRef(null);
   
   // Generate random noise position with animation
@@ -419,6 +428,55 @@ const NoisePad = () => {
       // Calculate new position
       const newX = startX + (randomX - startX) * eased;
       const newY = startY + (randomY - startY) * eased;
+      
+      // Update position
+      setPosition({ x: newX, y: newY });
+      
+      // Continue animation if not done
+      if (progress < 1) {
+        randomAnimRef.current = requestAnimationFrame(animate);
+      } else {
+        randomAnimRef.current = null;
+      }
+    };
+    
+    // Start animation
+    randomAnimRef.current = requestAnimationFrame(animate);
+  };
+  
+  // Reset to center position with animation
+  const resetPosition = (e) => {
+    // Prevent event propagation
+    e.stopPropagation();
+    
+    // Cancel any existing animation
+    if (randomAnimRef.current) {
+      cancelAnimationFrame(randomAnimRef.current);
+    }
+    
+    // Default center position
+    const defaultX = 50;
+    const defaultY = 50;
+    
+    // Start position
+    const startX = position.x;
+    const startY = position.y;
+    
+    // Animation settings
+    const duration = 600; // ms
+    const startTime = performance.now();
+    
+    // Animation function
+    const animate = (currentTime) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Easing function (ease-out cubic)
+      const eased = 1 - Math.pow(1 - progress, 3);
+      
+      // Calculate new position
+      const newX = startX + (defaultX - startX) * eased;
+      const newY = startY + (defaultY - startY) * eased;
       
       // Update position
       setPosition({ x: newX, y: newY });
@@ -935,6 +993,24 @@ const NoisePad = () => {
                 >
                   {showGridLines ? 'ON' : 'OFF'}
                 </button>
+              </div>
+            </div>
+            
+            {/* Reset position option */}
+            <div className="mt-2 pt-2 border-t border-gray-100">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-1.5 h-1.5 bg-black rounded-full opacity-70"></div>
+                  <span className="text-xs font-medium text-gray-700">Reset Position</span>
+                </div>
+                <Button
+                  onClick={(e) => resetPosition(e)}
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-full border border-gray-100 bg-gray-50 hover:bg-gray-100 text-gray-600 px-3 py-1 text-[10px] shadow-none h-auto"
+                >
+                  <span className="font-medium">Center</span>
+                </Button>
               </div>
             </div>
           </div>
