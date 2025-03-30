@@ -2,9 +2,9 @@
 
 ## Project Overview
 Noise Sculptor is an interactive web application that allows users to explore different "colors" of noise by manipulating audio filters. Users interact with a 2D pad where:
-- X-axis controls the lowpass filter frequency (100-15000 Hz logarithmically)
-- Y-axis controls the highpass filter frequency (32-10000 Hz logarithmically)
-- The combination creates different noise "colors" (Brown, Pink, White, Blue, Green)
+- X-axis controls filter type and cutoff frequency (left = LPF, right = HPF), with smooth crossfading between them
+- Y-axis continuously crossfades between different filter slopes (-12dB/oct to -48dB/oct)
+- The combination creates different noise "colors" and characters
 - Visual feedback includes a live waveform display and filter response visualization
 
 The app uses Web Audio API via Tone.js to generate and shape noise in real-time, with an intuitive touch/mouse interface.

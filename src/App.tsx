@@ -5,71 +5,248 @@ const NoisePad = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [position, setPosition] = useState({ x: 50, y: 50 });
   const [filterValues, setFilterValues] = useState({
-    lowpass: 10000,
-    highpass: 20
+    frequency: 1000,
+    type: "lowpass",
+    rolloff: -24,
+    crossfadePosition: 0.5, // 0-1 value for rolloff crossfade visualization
+    filterBlend: 0.5 // 0-1 value for LPF/HPF blend
   });
   const [isDragging, setIsDragging] = useState(false);
   const padRef = useRef(null);
   const noiseRef = useRef(null);
-  const lowpassRef = useRef(null);
-  const highpassRef = useRef(null);
+  
+  // LPF filters with different rolloffs
+  const filter12Ref = useRef(null);
+  const filter24Ref = useRef(null);
+  const filter48Ref = useRef(null);
+  
+  // HPF filters with different rolloffs  
+  const hpf12Ref = useRef(null);
+  const hpf24Ref = useRef(null);
+  const hpf48Ref = useRef(null);
+  
+  // Filter type crossfaders (LPF <-> HPF)
+  const xf12Ref = useRef(null);
+  const xf24Ref = useRef(null);
+  const xf48Ref = useRef(null);
+  
+  // Rolloff crossfaders
+  const crossfade12_24Ref = useRef(null);
+  const crossfade24_48Ref = useRef(null);
+  const masterCrossfadeRef = useRef(null);
+  
   const analyserRef = useRef(null);
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
 
   // Initialize audio components
   useEffect(() => {
-    noiseRef.current = new Tone.Noise("white").toDestination();
-    noiseRef.current.volume.value = -8; // Increased amplitude for a stronger signal
-
-    lowpassRef.current = new Tone.Filter(filterValues.lowpass, "lowpass");
-    highpassRef.current = new Tone.Filter(filterValues.highpass, "highpass").toDestination();
-
+    // Create noise source
+    noiseRef.current = new Tone.Noise("white");
+    noiseRef.current.volume.value = -15;
+    
+    // Create LPF filters with different rolloffs
+    filter12Ref.current = new Tone.Filter({
+      frequency: 20000,
+      type: "lowpass",
+      rolloff: -12
+    });
+    
+    filter24Ref.current = new Tone.Filter({
+      frequency: 20000,
+      type: "lowpass",
+      rolloff: -24
+    });
+    
+    filter48Ref.current = new Tone.Filter({
+      frequency: 20000,
+      type: "lowpass",
+      rolloff: -48
+    });
+    
+    // Create HPF filters with different rolloffs
+    hpf12Ref.current = new Tone.Filter({
+      frequency: 20,
+      type: "highpass",
+      rolloff: -12
+    });
+    
+    hpf24Ref.current = new Tone.Filter({
+      frequency: 20,
+      type: "highpass",
+      rolloff: -24
+    });
+    
+    hpf48Ref.current = new Tone.Filter({
+      frequency: 20,
+      type: "highpass",
+      rolloff: -48
+    });
+    
+    // Create crossfaders between the same rolloffs (LPF <-> HPF)
+    xf12Ref.current = new Tone.CrossFade(0.5);
+    xf24Ref.current = new Tone.CrossFade(0.5);
+    xf48Ref.current = new Tone.CrossFade(0.5);
+    
+    // Create rolloff crossfaders
+    crossfade12_24Ref.current = new Tone.CrossFade(0.5);
+    crossfade24_48Ref.current = new Tone.CrossFade(0.5);
+    masterCrossfadeRef.current = new Tone.CrossFade(0.5).toDestination();
+    
     // Create an analyser node for visualization
-    analyserRef.current = new Tone.Analyser("waveform", 256); // Increased sample rate from 128 to 256
-
-    // Connect the audio chain
-    noiseRef.current.disconnect();
-    noiseRef.current.connect(lowpassRef.current);
-    lowpassRef.current.connect(highpassRef.current);
-
+    analyserRef.current = new Tone.Analyser("waveform", 256);
+    
+    // Connect everything
+    // First fan out to all filters
+    noiseRef.current.fan(
+      filter12Ref.current, filter24Ref.current, filter48Ref.current,
+      hpf12Ref.current, hpf24Ref.current, hpf48Ref.current
+    );
+    
+    // Create crossfades between LPF and HPF for each rolloff
+    filter12Ref.current.connect(xf12Ref.current.a);
+    hpf12Ref.current.connect(xf12Ref.current.b);
+    
+    filter24Ref.current.connect(xf24Ref.current.a);
+    hpf24Ref.current.connect(xf24Ref.current.b);
+    
+    filter48Ref.current.connect(xf48Ref.current.a);
+    hpf48Ref.current.connect(xf48Ref.current.b);
+    
+    // Then crossfade between different rolloffs
+    xf12Ref.current.connect(crossfade12_24Ref.current.a);
+    xf24Ref.current.connect(crossfade12_24Ref.current.b);
+    
+    xf24Ref.current.connect(crossfade24_48Ref.current.a);
+    xf48Ref.current.connect(crossfade24_48Ref.current.b);
+    
+    crossfade12_24Ref.current.connect(masterCrossfadeRef.current.a);
+    crossfade24_48Ref.current.connect(masterCrossfadeRef.current.b);
+    
     // Connect the analyser to the end of the chain
-    highpassRef.current.connect(analyserRef.current);
+    masterCrossfadeRef.current.connect(analyserRef.current);
 
     return () => {
+      // Clean up all audio nodes
       if (noiseRef.current) noiseRef.current.dispose();
-      if (lowpassRef.current) lowpassRef.current.dispose();
-      if (highpassRef.current) highpassRef.current.dispose();
+      
+      if (filter12Ref.current) filter12Ref.current.dispose();
+      if (filter24Ref.current) filter24Ref.current.dispose();
+      if (filter48Ref.current) filter48Ref.current.dispose();
+      
+      if (crossfade12_24Ref.current) crossfade12_24Ref.current.dispose();
+      if (crossfade24_48Ref.current) crossfade24_48Ref.current.dispose();
+      if (masterCrossfadeRef.current) masterCrossfadeRef.current.dispose();
+      
       if (analyserRef.current) analyserRef.current.dispose();
+      
+      // Also dispose the other audio nodes
+      if (hpf12Ref.current) hpf12Ref.current.dispose();
+      if (hpf24Ref.current) hpf24Ref.current.dispose();
+      if (hpf48Ref.current) hpf48Ref.current.dispose();
+      
+      if (xf12Ref.current) xf12Ref.current.dispose();
+      if (xf24Ref.current) xf24Ref.current.dispose();
+      if (xf48Ref.current) xf48Ref.current.dispose();
+      
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
   }, []);
 
   // Update filter values when position changes
   useEffect(() => {
-    if (lowpassRef.current && highpassRef.current) {
-      // Scale x position (0-100) to frequency range (100-15000 Hz) logarithmically
-      let lowpassFreq = Math.pow(10, 2 + (position.x / 100) * 2.18);
-
-      // Scale y position (0-100) to frequency range (32-10000 Hz) logarithmically
-      // FLIPPED: High Y = low HPF, Low Y = high HPF
-      // More aggressive HPF curve for a more noticeable effect
-      const highpassFreq = Math.pow(10, 1.5 + ((100 - position.y) / 100) * 2.5);
-
-      // Ensure LPF is always at least 1.5 times higher than HPF to prevent silent regions
-      const minLowpassFreq = highpassFreq * 1.5;
-      if (lowpassFreq < minLowpassFreq) {
-        lowpassFreq = minLowpassFreq;
-      }
-
-      lowpassRef.current.frequency.value = lowpassFreq;
-      highpassRef.current.frequency.value = highpassFreq;
-
-      setFilterValues({
-        lowpass: Math.round(lowpassFreq),
-        highpass: Math.round(highpassFreq)
-      });
+    if (!filter12Ref.current || !filter24Ref.current || !filter48Ref.current) return;
+    if (!crossfade12_24Ref.current || !crossfade24_48Ref.current || !masterCrossfadeRef.current) return;
+    
+    // X-axis now controls a crossfade between LPF and HPF (0 = pure LPF, 100 = pure HPF)
+    const normX = position.x / 100;
+    
+    // Create a smooth crossfade between the two filter types
+    // Instead of a fixed mid-point, we'll use a crossfade area in the middle
+    const filterBlend = Math.max(0, Math.min(1, (normX - 0.4) / 0.2)); // 0 at x<40%, 1 at x>60%, linear in between
+    
+    // Determine the display filter type (for visualization and display)
+    let filterType;
+    if (filterBlend < 0.1) {
+      filterType = "lowpass";
+    } else if (filterBlend > 0.9) {
+      filterType = "highpass";
+    } else {
+      filterType = filterBlend < 0.5 ? "lowpass" : "highpass";
     }
+    
+    // Calculate frequencies for both filters based on X position
+    // They move in opposite directions as the user moves the slider
+    
+    // LPF: freq decreases as you move left
+    // At x=50%, LPF is at max frequency (minimal filtering)
+    // At x=0%, LPF is at minimum frequency (heavy filtering)
+    const lpfFactor = Math.max(0, 1 - normX * 1.5); // 0 at x>67%, 1 at x=0%
+    const lpfFreq = lpfFactor > 0 ? 
+      Math.pow(10, 4.3 - (lpfFactor * 2.5)) : // 20kHz down to ~100Hz 
+      22000; // Effectively no filtering
+      
+    // HPF: freq increases as you move right
+    // At x=50%, HPF is at min frequency (minimal filtering)
+    // At x=100%, HPF is at maximum frequency (heavy filtering)
+    const hpfFactor = Math.max(0, normX * 1.5 - 0.5); // 0 at x<33%, 1 at x=100%
+    const hpfFreq = hpfFactor > 0 ? 
+      Math.pow(10, 1.5 + (hpfFactor * 3)) : // 32Hz up to ~3.2kHz (more aggressive range)
+      20; // Effectively no filtering
+    
+    // For display purposes, pick the "active" frequency based on the blend
+    const frequency = filterBlend < 0.5 ? lpfFreq : hpfFreq;
+    
+    // Y-axis controls filter slope/rolloff crossfading
+    const normY = position.y / 100;
+    
+    // Calculate crossfade values based on Y position
+    let rolloff = -12; // Default value for display
+    let crossfadePosition = 0; // For visualization
+    
+    if (normY < 0.5) {
+      // Top half: crossfade between -12 and -24 dB/oct
+      crossfade12_24Ref.current.fade.value = normY * 2; // 0 to 1
+      crossfade24_48Ref.current.fade.value = 0; // Fixed at first input
+      masterCrossfadeRef.current.fade.value = 0; // Use the 12/24 crossfader
+      
+      // For display, calculate effective rolloff
+      rolloff = -12 - (12 * normY * 2);
+      crossfadePosition = normY * 2;
+    } else {
+      // Bottom half: crossfade between -24 and -48 dB/oct
+      crossfade12_24Ref.current.fade.value = 1; // Fixed at second input
+      crossfade24_48Ref.current.fade.value = (normY - 0.5) * 2; // 0 to 1
+      masterCrossfadeRef.current.fade.value = 1; // Use the 24/48 crossfader
+      
+      // For display, calculate effective rolloff
+      rolloff = -24 - (24 * (normY - 0.5) * 2);
+      crossfadePosition = (normY - 0.5) * 2;
+    }
+    
+    // Update all LPF filters
+    [filter12Ref.current, filter24Ref.current, filter48Ref.current].forEach(filter => {
+      filter.frequency.value = lpfFreq;
+    });
+    
+    // Update all HPF filters
+    [hpf12Ref.current, hpf24Ref.current, hpf48Ref.current].forEach(filter => {
+      filter.frequency.value = hpfFreq;
+    });
+    
+    // Update the LPF/HPF crossfade for each rolloff pair
+    [xf12Ref.current, xf24Ref.current, xf48Ref.current].forEach(xf => {
+      xf.fade.value = filterBlend;
+    });
+    
+    // Update state for display
+    setFilterValues({
+      frequency: Math.round(frequency),
+      type: filterType,
+      rolloff: Math.round(rolloff),
+      crossfadePosition: crossfadePosition,
+      filterBlend: filterBlend
+    });
   }, [position]);
 
   // Draw waveform function
@@ -90,7 +267,7 @@ const NoisePad = () => {
     // Set stroke style based on the interpolated color
     const { color } = getInterpolatedColor();
     ctx.strokeStyle = color;
-    ctx.lineWidth = 2.5; // Increased line width for better visibility
+    ctx.lineWidth = 1.5;
 
     // Begin drawing path
     ctx.beginPath();
@@ -272,53 +449,50 @@ const NoisePad = () => {
     const normX = position.x / 100;
     const normY = position.y / 100;
 
-    // Define noise colors - positions updated to match background gradient
+    // Define noise colors
     const colors = {
-      brown: { r: 121, g: 85, b: 72 },     // Top left
+      brown: { r: 121, g: 85, b: 72 },     // Bottom left
       pink: { r: 233, g: 30, b: 99 },      // Middle left
-      green: { r: 139, g: 195, b: 74 },    // Bottom left
-      white: { r: 240, g: 240, b: 240 },   // Top right
-      blue: { r: 63, g: 81, b: 181 }       // Bottom right
+      blue: { r: 63, g: 81, b: 181 },      // Top right
+      white: { r: 240, g: 240, b: 240 },   // Bottom right
+      green: { r: 139, g: 195, b: 74 }     // Top left
     };
 
     // Calculate influence factors based on position
     const brownFactor = Math.max(0, (1 - normX) * normY * 1.5);
     const pinkFactor = Math.max(0, (1 - normX) * (1 - Math.abs(normY - 0.5)) * 1.5);
-    const greenFactor = Math.max(0, (1 - normX) * (1 - normY) * 1.5);
-    const whiteFactor = Math.max(0, normX * normY * 1.5);
     const blueFactor = Math.max(0, normX * (1 - normY) * 1.5);
+    const whiteFactor = Math.max(0, normX * normY * 1.5);
+    const greenFactor = Math.max(0, (1 - normX) * (1 - normY) * 1.5);
 
     // Normalize factors so they sum to 1
     const totalFactor = brownFactor + pinkFactor + blueFactor + whiteFactor + greenFactor;
     const normFactor = totalFactor > 0 ? 1 / totalFactor : 1;
 
-    // Increase color saturation by multiplying r,g,b by a factor before normalization
-    const saturationFactor = 1.5; // Increase color intensity
-
     // Blend colors
-    const r = Math.min(255, Math.round(
-      colors.brown.r * brownFactor * normFactor * saturationFactor +
-      colors.pink.r * pinkFactor * normFactor * saturationFactor +
-      colors.blue.r * blueFactor * normFactor * saturationFactor +
+    const r = Math.round(
+      colors.brown.r * brownFactor * normFactor +
+      colors.pink.r * pinkFactor * normFactor +
+      colors.blue.r * blueFactor * normFactor +
       colors.white.r * whiteFactor * normFactor +
-      colors.green.r * greenFactor * normFactor * saturationFactor
-    ));
+      colors.green.r * greenFactor * normFactor
+    );
 
-    const g = Math.min(255, Math.round(
-      colors.brown.g * brownFactor * normFactor * saturationFactor +
-      colors.pink.g * pinkFactor * normFactor * saturationFactor +
-      colors.blue.g * blueFactor * normFactor * saturationFactor +
+    const g = Math.round(
+      colors.brown.g * brownFactor * normFactor +
+      colors.pink.g * pinkFactor * normFactor +
+      colors.blue.g * blueFactor * normFactor +
       colors.white.g * whiteFactor * normFactor +
-      colors.green.g * greenFactor * normFactor * saturationFactor
-    ));
+      colors.green.g * greenFactor * normFactor
+    );
 
-    const b = Math.min(255, Math.round(
-      colors.brown.b * brownFactor * normFactor * saturationFactor +
-      colors.pink.b * pinkFactor * normFactor * saturationFactor +
-      colors.blue.b * blueFactor * normFactor * saturationFactor +
+    const b = Math.round(
+      colors.brown.b * brownFactor * normFactor +
+      colors.pink.b * pinkFactor * normFactor +
+      colors.blue.b * blueFactor * normFactor +
       colors.white.b * whiteFactor * normFactor +
-      colors.green.b * greenFactor * normFactor * saturationFactor
-    ));
+      colors.green.b * greenFactor * normFactor
+    );
 
     // Determine dominant color for the label
     const factors = [
@@ -356,11 +530,11 @@ const NoisePad = () => {
           onTouchStart={handlePadStart}
           style={{
             background: `
-              radial-gradient(circle at 20% 20%, rgba(233, 30, 99, 0.25), transparent 50%),  /* Pink - top left */
-              radial-gradient(circle at 30% 50%, rgba(156, 39, 176, 0.25), transparent 50%),  /* Purple - middle left */
-              radial-gradient(circle at 20% 80%, rgba(121, 85, 72, 0.35), transparent 50%),  /* Brown - bottom left */
-              radial-gradient(circle at 80% 20%, rgba(63, 81, 181, 0.35), transparent 50%),  /* Blue - top right */
-              radial-gradient(circle at 80% 80%, rgba(240, 240, 240, 0.35), transparent 50%) /* White - bottom right */
+              radial-gradient(circle at 20% 80%, rgba(121, 85, 72, 0.35), transparent 50%),
+              radial-gradient(circle at 30% 50%, rgba(233, 30, 99, 0.25), transparent 50%),
+              radial-gradient(circle at 80% 20%, rgba(63, 81, 181, 0.35), transparent 50%),
+              radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.35), transparent 50%),
+              radial-gradient(circle at 20% 20%, rgba(139, 195, 74, 0.3), transparent 50%)
             `,
             border: '1px solid rgba(0,0,0,0.05)'
           }}
@@ -371,17 +545,26 @@ const NoisePad = () => {
             <div className="absolute left-0 right-0 h-px bg-black opacity-10" style={{ top: '50%' }}></div>
             {/* Vertical axis line */}
             <div className="absolute top-0 bottom-0 w-px bg-black opacity-10" style={{ left: '50%' }}></div>
+            
+            {/* Rolloff section markers - subtle horizontal lines */}
+            <div className="absolute left-0 right-0 h-px bg-black opacity-5" style={{ top: '33%' }}></div>
+            <div className="absolute left-0 right-0 h-px bg-black opacity-5" style={{ top: '66%' }}></div>
           </div>
 
-          {/* Intuitive axis labels based on sound characteristics */}
+          {/* Axis labels */}
           <div className="absolute inset-0 flex flex-col justify-between pointer-events-none p-2">
             <div className="flex justify-between w-full">
-              <span className="text-xs text-gray-500">Hollow</span>
-              <span className="text-xs text-gray-500">Crisp</span>
+              <span className="text-xs text-gray-500">LPF</span>
+              <span className="text-xs text-gray-500">-12dB/oct</span>
+              <span className="text-xs text-gray-500">HPF</span>
+            </div>
+            <div className="flex justify-center w-full" style={{ marginTop: '33%' }}>
+              <span className="text-xs text-gray-400 opacity-70">-24dB/oct</span>
             </div>
             <div className="flex justify-between w-full">
-              <span className="text-xs text-gray-500">Rumble</span>
-              <span className="text-xs text-gray-500">Full</span>
+              <span className="text-xs text-gray-500">100Hz</span>
+              <span className="text-xs text-gray-500">-48dB/oct</span>
+              <span className="text-xs text-gray-500">3kHz</span>
             </div>
           </div>
 
@@ -406,9 +589,15 @@ const NoisePad = () => {
           </div>
         </div>
 
-        {/* Stable info display with smooth color transition */}
+        {/* Stable info display with filter details */}
         <div className="mt-1 text-xs text-gray-500 grid grid-cols-3 w-full">
-          <div className="text-left">{filterValues.highpass.toLocaleString()} Hz HPF</div>
+          <div className="text-left">
+            {filterValues.type === "lowpass" ? 
+              `${filterValues.frequency.toLocaleString()} Hz LPF` : 
+              (filterValues.type === "highpass" ? 
+                `${filterValues.frequency.toLocaleString()} Hz HPF` : 
+                "No Filter")}
+          </div>
           <div className="flex items-center justify-center gap-1.5">
             <div
               className="w-3 h-3 rounded-full"
@@ -416,13 +605,7 @@ const NoisePad = () => {
             ></div>
             <div className="font-medium text-gray-700">{interpolatedColor.name}</div>
           </div>
-          <div className="text-right">{filterValues.lowpass.toLocaleString()} Hz LPF</div>
-        </div>
-
-        {/* Bandpass info */}
-        <div className="mt-1 text-xs text-gray-500 w-full text-center">
-          Bandwidth: {Math.round(filterValues.lowpass - filterValues.highpass).toLocaleString()} Hz
-          {position.x < (100 - position.y) ? " (auto-adjusted)" : ""}
+          <div className="text-right">~{filterValues.rolloff} dB/oct</div>
         </div>
       </div>
 
@@ -438,18 +621,13 @@ const NoisePad = () => {
         {isPlaying ? 'Stop' : 'Play'}
       </button>
 
-      {/* Minimal instruction - moved below play button */}
-      <div className="mt-1.5 mb-2 text-xs text-gray-400 text-center">
-        Touch & drag to shape sound • Background shows noise color
-      </div>
-
       {/* Waveform visualization */}
       <div className="w-full mt-3">
         <div className="text-xs text-gray-500 mb-1 flex justify-between items-center">
           <span>Waveform</span>
           <span>{isPlaying ? 'Live' : 'Idle'}</span>
         </div>
-        <div className="w-full h-14 rounded-md overflow-hidden border border-gray-100 bg-gray-50">
+        <div className="w-full h-12 rounded-md overflow-hidden border border-gray-100 bg-gray-50">
           <canvas
             ref={canvasRef}
             className="w-full h-full"
@@ -457,51 +635,60 @@ const NoisePad = () => {
         </div>
       </div>
 
-      {/* Bandpass visualization */}
+      {/* Filter visualization */}
       <div className="w-full mt-3">
         <div className="text-xs text-gray-500 mb-1">
           <span>Filter Response</span>
         </div>
-        <div className="w-full h-14 rounded-md overflow-hidden border border-gray-100 bg-gray-50 relative">
-          {/* Visualization of the bandpass filter */}
-          <div className="absolute inset-0 flex items-end">
-            {/* Frequency ticks */}
-            <div className="absolute bottom-0 left-0 right-0 h-6 flex justify-between px-1">
-              <span className="text-[8px] text-gray-400">20Hz</span>
-              <span className="text-[8px] text-gray-400">100Hz</span>
-              <span className="text-[8px] text-gray-400">1kHz</span>
-              <span className="text-[8px] text-gray-400">10kHz</span>
-              <span className="text-[8px] text-gray-400">20kHz</span>
-            </div>
+        <div className="w-full h-12 rounded-md overflow-hidden border border-gray-100 bg-gray-50 relative">
+          {/* Frequency ticks */}
+          <div className="absolute bottom-0 left-0 right-0 h-6 flex justify-between px-1">
+            <span className="text-[8px] text-gray-400">20Hz</span>
+            <span className="text-[8px] text-gray-400">200Hz</span>
+            <span className="text-[8px] text-gray-400">1kHz</span>
+            <span className="text-[8px] text-gray-400">5kHz</span>
+            <span className="text-[8px] text-gray-400">20kHz</span>
+          </div>
 
-            {/* HPF curve */}
-            <div
-              className="absolute h-8 bottom-6 left-0 right-0"
+          {/* Filter curve visualization */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            {/* Show both filter types with opacity based on the blend */}
+            <div 
+              className="absolute h-8 top-1 left-0 right-0"
               style={{
-                background: `linear-gradient(90deg,
-                  rgba(255,50,50,0.3) 0%,
-                  rgba(255,50,50,0.3) ${(Math.log10(filterValues.highpass) - 1) * 25}%,
-                  rgba(50,255,50,0.2) ${(Math.log10(filterValues.highpass) - 1) * 25 + 3}%,
-                  rgba(50,255,50,0.2) 100%)`
+                background: `linear-gradient(90deg, 
+                  rgba(50,200,50,0.3) 0%, 
+                  rgba(50,200,50,0.3) ${Math.min(95, Math.max(5, (Math.log10(filterValues.filterBlend < 0.5 ? filterValues.frequency : 20000) - 1) * 23))}%, 
+                  rgba(50,50,50,0.1) ${Math.min(98, Math.max(8, (Math.log10(filterValues.filterBlend < 0.5 ? filterValues.frequency : 20000) - 1) * 23 + (filterValues.rolloff/-6)))}%,
+                  rgba(50,50,50,0.1) 100%)`,
+                opacity: Math.max(0, 1 - filterValues.filterBlend * 1.5),
+                transition: 'all 0.1s'
               }}
             ></div>
-
-            {/* LPF curve */}
-            <div
-              className="absolute h-8 bottom-6 left-0 right-0"
+            
+            <div 
+              className="absolute h-8 top-1 left-0 right-0"
               style={{
-                background: `linear-gradient(90deg,
-                  rgba(50,255,50,0.2) 0%,
-                  rgba(50,255,50,0.2) ${(Math.log10(filterValues.lowpass) - 1) * 25 - 3}%,
-                  rgba(255,50,50,0.3) ${(Math.log10(filterValues.lowpass) - 1) * 25}%,
-                  rgba(255,50,50,0.3) 100%)`
+                background: `linear-gradient(90deg, 
+                  rgba(50,50,50,0.1) 0%,
+                  rgba(50,50,50,0.1) ${Math.min(92, Math.max(2, (Math.log10(filterValues.filterBlend > 0.5 ? filterValues.frequency : 20) - 1) * 23 - (filterValues.rolloff/-6)))}%, 
+                  rgba(50,200,50,0.3) ${Math.min(95, Math.max(5, (Math.log10(filterValues.filterBlend > 0.5 ? filterValues.frequency : 20) - 1) * 23))}%,
+                  rgba(50,200,50,0.3) 100%)`,
+                opacity: Math.max(0, filterValues.filterBlend * 1.5 - 0.5),
+                transition: 'all 0.1s'
               }}
             ></div>
+            
+            {/* Center line */}
+            <div className="h-px w-full bg-gray-300 opacity-40"></div>
           </div>
         </div>
       </div>
 
-      {/* Removed instruction text from here - now above */}
+      {/* Minimal instruction */}
+      <div className="mt-2 text-xs text-gray-400 text-center">
+        Left: LPF • Right: HPF • Y-axis: Filter Slope • Middle: Blend
+      </div>
     </div>
   );
 };
