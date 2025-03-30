@@ -449,58 +449,81 @@ const NoisePad = () => {
     const normX = position.x / 100;
     const normY = position.y / 100;
 
-    // Define noise colors
+    // Define noise colors according to standard definitions
     const colors = {
-      brown: { r: 121, g: 85, b: 72 },     // Bottom left
-      pink: { r: 233, g: 30, b: 99 },      // Middle left
-      blue: { r: 63, g: 81, b: 181 },      // Top right
-      white: { r: 240, g: 240, b: 240 },   // Bottom right
-      green: { r: 139, g: 195, b: 74 }     // Top left
+      brown: { r: 139, g: 69, b: 19 },     // Brown noise (-6 dB/octave)
+      pink: { r: 255, g: 105, b: 180 },    // Pink noise (-3 dB/octave)
+      white: { r: 245, g: 245, b: 245 },   // White noise (0 dB/octave) 
+      blue: { r: 70, g: 130, b: 180 },     // Blue noise (+3 dB/octave)
+      violet: { r: 148, g: 0, b: 211 }     // Violet noise (+6 dB/octave)
     };
 
-    // Calculate influence factors based on position
-    const brownFactor = Math.max(0, (1 - normX) * normY * 1.5);
-    const pinkFactor = Math.max(0, (1 - normX) * (1 - Math.abs(normY - 0.5)) * 1.5);
-    const blueFactor = Math.max(0, normX * (1 - normY) * 1.5);
-    const whiteFactor = Math.max(0, normX * normY * 1.5);
-    const greenFactor = Math.max(0, (1 - normX) * (1 - normY) * 1.5);
+    // Calculate noise color based on position in the filter space
+    // X-axis (0-1): Left = LPF (pink/brown), Middle = Flat (white), Right = HPF (blue/violet)
+    // Y-axis (0-1): Top = steeper high end (violet/white/pink), Bottom = steeper low end (blue/white/brown)
+    
+    // Determine X influence: LPF vs HPF
+    const leftSide = Math.max(0, 1 - normX * 2); // 1 at far left, 0 at middle
+    const rightSide = Math.max(0, normX * 2 - 1); // 0 at middle, 1 at far right
+    const middleX = 1 - leftSide - rightSide; // 1 at middle, 0 at edges
+    
+    // Determine Y influence: Top vs Bottom vs Middle
+    const topSide = Math.max(0, 1 - normY * 2); // 1 at top, 0 at middle
+    const bottomSide = Math.max(0, normY * 2 - 1); // 0 at middle, 1 at bottom
+    const middleY = 1 - topSide - bottomSide; // 1 at middle, 0 at extremes
+    
+    // Calculate noise color weights based on position
+    // White noise (flat EQ): strongest in the center
+    const whiteFactor = Math.pow(middleX * middleY, 0.5) * 1.5;
+    
+    // Pink noise (-3 dB/oct): LPF with mild slope, stronger in mid-left
+    const pinkFactor = leftSide * (middleY * 0.7 + topSide * 0.3);
+    
+    // Brown noise (-6 dB/oct): LPF with steep slope, stronger in bottom-left
+    const brownFactor = leftSide * (middleY * 0.3 + bottomSide * 0.7);
+    
+    // Blue noise (+3 dB/oct): HPF with mild slope, stronger in mid-right
+    const blueFactor = rightSide * (middleY * 0.7 + bottomSide * 0.3);
+    
+    // Violet noise (+6 dB/oct): HPF with steep slope, stronger in top-right
+    const violetFactor = rightSide * (middleY * 0.3 + topSide * 0.7);
 
     // Normalize factors so they sum to 1
-    const totalFactor = brownFactor + pinkFactor + blueFactor + whiteFactor + greenFactor;
+    const totalFactor = brownFactor + pinkFactor + whiteFactor + blueFactor + violetFactor;
     const normFactor = totalFactor > 0 ? 1 / totalFactor : 1;
 
     // Blend colors
     const r = Math.round(
       colors.brown.r * brownFactor * normFactor +
       colors.pink.r * pinkFactor * normFactor +
-      colors.blue.r * blueFactor * normFactor +
       colors.white.r * whiteFactor * normFactor +
-      colors.green.r * greenFactor * normFactor
+      colors.blue.r * blueFactor * normFactor +
+      colors.violet.r * violetFactor * normFactor
     );
 
     const g = Math.round(
       colors.brown.g * brownFactor * normFactor +
       colors.pink.g * pinkFactor * normFactor +
-      colors.blue.g * blueFactor * normFactor +
       colors.white.g * whiteFactor * normFactor +
-      colors.green.g * greenFactor * normFactor
+      colors.blue.g * blueFactor * normFactor +
+      colors.violet.g * violetFactor * normFactor
     );
 
     const b = Math.round(
       colors.brown.b * brownFactor * normFactor +
       colors.pink.b * pinkFactor * normFactor +
-      colors.blue.b * blueFactor * normFactor +
       colors.white.b * whiteFactor * normFactor +
-      colors.green.b * greenFactor * normFactor
+      colors.blue.b * blueFactor * normFactor +
+      colors.violet.b * violetFactor * normFactor
     );
 
     // Determine dominant color for the label
     const factors = [
       { name: 'Brown', value: brownFactor },
       { name: 'Pink', value: pinkFactor },
-      { name: 'Blue', value: blueFactor },
       { name: 'White', value: whiteFactor },
-      { name: 'Green', value: greenFactor }
+      { name: 'Blue', value: blueFactor },
+      { name: 'Violet', value: violetFactor }
     ];
 
     // Sort by factor value and get the dominant one
@@ -530,11 +553,17 @@ const NoisePad = () => {
           onTouchStart={handlePadStart}
           style={{
             background: `
-              radial-gradient(circle at 20% 80%, rgba(121, 85, 72, 0.35), transparent 50%),
-              radial-gradient(circle at 30% 50%, rgba(233, 30, 99, 0.25), transparent 50%),
-              radial-gradient(circle at 80% 20%, rgba(63, 81, 181, 0.35), transparent 50%),
-              radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.35), transparent 50%),
-              radial-gradient(circle at 20% 20%, rgba(139, 195, 74, 0.3), transparent 50%)
+              linear-gradient(to bottom, 
+                rgba(148, 0, 211, 0.2) 0%, 
+                rgba(245, 245, 245, 0.4) 50%, 
+                rgba(139, 69, 19, 0.2) 100%
+              ),
+              linear-gradient(to right,
+                rgba(255, 105, 180, 0.3) 0%,
+                rgba(245, 245, 245, 0.4) 50%,
+                rgba(70, 130, 180, 0.3) 100%
+              ),
+              radial-gradient(circle at 50% 50%, rgba(245, 245, 245, 0.6), transparent 50%)
             `,
             border: '1px solid rgba(0,0,0,0.05)'
           }}
