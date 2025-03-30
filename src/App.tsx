@@ -839,10 +839,6 @@ const NoisePad = () => {
                   onValueChange={(values) => handleResonanceChange(values[0])}
                   className="w-full"
                 />
-                <div className="flex justify-between text-[9px] text-gray-400 mt-1.5 px-0.5">
-                  <span>Flat</span>
-                  <span>Resonant</span>
-                </div>
               </div>
             </div>
 
