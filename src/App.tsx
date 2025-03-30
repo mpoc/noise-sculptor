@@ -181,9 +181,9 @@ const NoisePad = () => {
     // LPF: freq decreases as you move left
     // At x=50%, LPF is at max frequency (minimal filtering)
     // At x=0%, LPF is at minimum frequency (heavy filtering)
-    const lpfFactor = Math.max(0, 1 - normX * 1.5); // 0 at x>67%, 1 at x=0%
+    const lpfFactor = Math.max(0, 1 - normX * 2.0); // 0 at x>50%, 1 at x=0% - extends range further into middle
     const lpfFreq = lpfFactor > 0 ? 
-      Math.pow(10, 4.3 - (lpfFactor * 2.5)) : // 20kHz down to ~100Hz 
+      Math.pow(10, 4.3 - (lpfFactor * 2.7)) : // 20kHz down to ~50Hz, steeper curve
       22000; // Effectively no filtering
       
     // HPF: freq increases as you move right
