@@ -17,6 +17,7 @@ const NoisePad = () => {
     resonance: 1 // Default Q value (no resonance)
   });
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showGridLines, setShowGridLines] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const padRef = useRef(null);
   const noiseRef = useRef(null);
@@ -608,34 +609,39 @@ const NoisePad = () => {
             border: '1px solid rgba(0,0,0,0.05)'
           }}
         >
-          {/* Axis guides - minimal, just lines */}
-          <div className="absolute inset-0 pointer-events-none">
-            {/* Horizontal axis line */}
-            <div className="absolute left-0 right-0 h-px bg-black opacity-10" style={{ top: '50%' }}></div>
-            {/* Vertical axis line */}
-            <div className="absolute top-0 bottom-0 w-px bg-black opacity-10" style={{ left: '50%' }}></div>
-            
-            {/* Rolloff section markers - subtle horizontal lines */}
-            <div className="absolute left-0 right-0 h-px bg-black opacity-5" style={{ top: '33%' }}></div>
-            <div className="absolute left-0 right-0 h-px bg-black opacity-5" style={{ top: '66%' }}></div>
-          </div>
+          {/* Grid lines - conditionally rendered based on showGridLines */}
+          {showGridLines && (
+            <>
+              {/* Axis guides - minimal, just lines */}
+              <div className="absolute inset-0 pointer-events-none">
+                {/* Horizontal axis line */}
+                <div className="absolute left-0 right-0 h-px bg-black opacity-10" style={{ top: '50%' }}></div>
+                {/* Vertical axis line */}
+                <div className="absolute top-0 bottom-0 w-px bg-black opacity-10" style={{ left: '50%' }}></div>
+                
+                {/* Rolloff section markers - subtle horizontal lines */}
+                <div className="absolute left-0 right-0 h-px bg-black opacity-5" style={{ top: '33%' }}></div>
+                <div className="absolute left-0 right-0 h-px bg-black opacity-5" style={{ top: '66%' }}></div>
+              </div>
 
-          {/* Axis labels */}
-          <div className="absolute inset-0 flex flex-col justify-between pointer-events-none p-2">
-            <div className="flex justify-between w-full">
-              <span className="text-xs text-gray-500">LPF</span>
-              <span className="text-xs text-gray-500">-12dB/oct</span>
-              <span className="text-xs text-gray-500">HPF</span>
-            </div>
-            <div className="flex justify-center w-full" style={{ marginTop: '33%' }}>
-              <span className="text-xs text-gray-400 opacity-70">-24dB/oct</span>
-            </div>
-            <div className="flex justify-between w-full">
-              <span className="text-xs text-gray-500">100Hz</span>
-              <span className="text-xs text-gray-500">-48dB/oct</span>
-              <span className="text-xs text-gray-500">3kHz</span>
-            </div>
-          </div>
+              {/* Axis labels */}
+              <div className="absolute inset-0 flex flex-col justify-between pointer-events-none p-2">
+                <div className="flex justify-between w-full">
+                  <span className="text-xs text-gray-500">LPF</span>
+                  <span className="text-xs text-gray-500">-12dB/oct</span>
+                  <span className="text-xs text-gray-500">HPF</span>
+                </div>
+                <div className="flex justify-center w-full" style={{ marginTop: '33%' }}>
+                  <span className="text-xs text-gray-400 opacity-70">-24dB/oct</span>
+                </div>
+                <div className="flex justify-between w-full">
+                  <span className="text-xs text-gray-500">100Hz</span>
+                  <span className="text-xs text-gray-500">-48dB/oct</span>
+                  <span className="text-xs text-gray-500">3kHz</span>
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Simple pin/knob */}
           <div
@@ -837,6 +843,26 @@ const NoisePad = () => {
                   <span>Flat</span>
                   <span>Resonant</span>
                 </div>
+              </div>
+            </div>
+
+            {/* Grid lines toggle */}
+            <div className="mt-2 pt-2 border-t border-gray-100">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-1.5 h-1.5 bg-black rounded-full opacity-70"></div>
+                  <span className="text-xs font-medium text-gray-700">Show Grid Lines</span>
+                </div>
+                <button 
+                  onClick={() => setShowGridLines(!showGridLines)}
+                  className={`px-2 py-1 rounded text-[10px] font-medium ${
+                    showGridLines 
+                      ? 'bg-black text-white' 
+                      : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  {showGridLines ? 'ON' : 'OFF'}
+                </button>
               </div>
             </div>
           </div>
