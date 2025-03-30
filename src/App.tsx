@@ -621,6 +621,11 @@ const NoisePad = () => {
         {isPlaying ? 'Stop' : 'Play'}
       </button>
 
+      {/* Minimal instruction - placed right below play button */}
+      <div className="mt-1.5 mb-2 text-xs text-gray-400 text-center">
+        Touch & drag to shape sound • Background shows noise color
+      </div>
+
       {/* Waveform visualization */}
       <div className="w-full mt-3">
         <div className="text-xs text-gray-500 mb-1 flex justify-between items-center">
@@ -685,10 +690,6 @@ const NoisePad = () => {
         </div>
       </div>
 
-      {/* Minimal instruction */}
-      <div className="mt-2 text-xs text-gray-400 text-center">
-        Left: LPF • Right: HPF • Y-axis: Filter Slope • Middle: Blend
-      </div>
     </div>
   );
 };
