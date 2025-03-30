@@ -383,6 +383,67 @@ const NoisePad = () => {
     setPosition({ x, y });
   };
 
+  // Random animation ref to cancel animation frames if needed
+  const randomAnimRef = useRef(null);
+  
+  // Generate random noise position with animation
+  const generateRandomNoise = (e) => {
+    // Prevent event propagation so it doesn't trigger pad interaction
+    e.stopPropagation();
+    
+    // Cancel any existing animation
+    if (randomAnimRef.current) {
+      cancelAnimationFrame(randomAnimRef.current);
+    }
+    
+    // Generate random x and y positions
+    const randomX = Math.random() * 100;
+    const randomY = Math.random() * 100;
+    
+    // Start position
+    const startX = position.x;
+    const startY = position.y;
+    
+    // Animation settings
+    const duration = 600; // ms
+    const startTime = performance.now();
+    
+    // Animation function
+    const animate = (currentTime) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Easing function (ease-out cubic)
+      const eased = 1 - Math.pow(1 - progress, 3);
+      
+      // Calculate new position
+      const newX = startX + (randomX - startX) * eased;
+      const newY = startY + (randomY - startY) * eased;
+      
+      // Update position
+      setPosition({ x: newX, y: newY });
+      
+      // Continue animation if not done
+      if (progress < 1) {
+        randomAnimRef.current = requestAnimationFrame(animate);
+      } else {
+        randomAnimRef.current = null;
+      }
+    };
+    
+    // Start animation
+    randomAnimRef.current = requestAnimationFrame(animate);
+  };
+  
+  // Clean up animation on unmount
+  useEffect(() => {
+    return () => {
+      if (randomAnimRef.current) {
+        cancelAnimationFrame(randomAnimRef.current);
+      }
+    };
+  }, []);
+
   // Handle pad click/touch
   const handlePadClick = (e) => {
     // Prevent default actions
@@ -684,22 +745,35 @@ const NoisePad = () => {
         </div>
       </div>
 
-      {/* Play button with modern minimal style matching advanced button */}
-      <Button
-        onClick={(e) => togglePlay(e)}
-        variant="ghost"
-        size="sm"
-        className={`rounded-full border border-gray-100 ${
-          isPlaying
-            ? 'bg-gray-100 hover:bg-gray-200 text-gray-600'
-            : 'bg-gray-50 hover:bg-gray-100 text-gray-600'
-        } px-4 py-1 text-xs mx-auto shadow-none`}
-      >
-        <span className="font-medium">{isPlaying ? 'Stop' : 'Play'}</span>
-      </Button>
+      {/* Control buttons container */}
+      <div className="flex items-center justify-center gap-2 mb-1">
+        {/* Play button with modern minimal style */}
+        <Button
+          onClick={(e) => togglePlay(e)}
+          variant="ghost"
+          size="sm"
+          className={`rounded-full border border-gray-100 ${
+            isPlaying
+              ? 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+              : 'bg-gray-50 hover:bg-gray-100 text-gray-600'
+          } px-4 py-1 text-xs shadow-none`}
+        >
+          <span className="font-medium">{isPlaying ? 'Stop' : 'Play'}</span>
+        </Button>
 
-      {/* Minimal instruction - placed right below play button */}
-      <div className="mt-1.5 mb-2 text-xs text-gray-400 text-center">
+        {/* Random noise button */}
+        <Button
+          onClick={(e) => generateRandomNoise(e)}
+          variant="ghost"
+          size="sm"
+          className="rounded-full border border-gray-100 bg-gray-50 hover:bg-gray-100 text-gray-600 px-4 py-1 text-xs shadow-none"
+        >
+          <span className="font-medium">Random</span>
+        </Button>
+      </div>
+
+      {/* Minimal instruction - placed right below buttons */}
+      <div className="mt-0.5 mb-2 text-xs text-gray-400 text-center">
         Touch & drag to shape sound • Background shows noise color
       </div>
 
