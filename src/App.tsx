@@ -264,9 +264,8 @@ const NoisePad = () => {
     // Clear the canvas
     ctx.clearRect(0, 0, width, height);
 
-    // Set stroke style based on the interpolated color
-    const { color } = getInterpolatedColor();
-    ctx.strokeStyle = color;
+    // Use a consistent color for the waveform
+    ctx.strokeStyle = '#333333';
     ctx.lineWidth = 1.5;
 
     // Begin drawing path
@@ -451,11 +450,11 @@ const NoisePad = () => {
 
     // Define noise colors according to standard definitions
     const colors = {
-      brown: { r: 139, g: 69, b: 19 },     // Brown noise (-6 dB/octave)
-      pink: { r: 255, g: 105, b: 180 },    // Pink noise (-3 dB/octave)
+      brown: { r: 160, g: 60, b: 45 },     // Brown noise (-6 dB/octave) - Less saturated brown
+      pink: { r: 255, g: 50, b: 150 },     // Pink noise (-3 dB/octave) - Softer pink
       white: { r: 245, g: 245, b: 245 },   // White noise (0 dB/octave) 
-      blue: { r: 70, g: 130, b: 180 },     // Blue noise (+3 dB/octave)
-      violet: { r: 148, g: 0, b: 211 }     // Violet noise (+6 dB/octave)
+      blue: { r: 75, g: 115, b: 215 },     // Blue noise (+3 dB/octave) - Slightly softer blue
+      violet: { r: 150, g: 60, b: 200 }    // Violet noise (+6 dB/octave) - Slightly softer violet
     };
 
     // Calculate noise color based on position in the filter space
@@ -554,14 +553,14 @@ const NoisePad = () => {
           style={{
             background: `
               linear-gradient(to bottom, 
-                rgba(148, 0, 211, 0.2) 0%, 
+                rgba(150, 60, 200, 0.22) 0%, 
                 rgba(245, 245, 245, 0.4) 50%, 
-                rgba(139, 69, 19, 0.2) 100%
+                rgba(160, 60, 45, 0.25) 100%
               ),
               linear-gradient(to right,
-                rgba(255, 105, 180, 0.3) 0%,
+                rgba(255, 50, 150, 0.3) 0%,
                 rgba(245, 245, 245, 0.4) 50%,
-                rgba(70, 130, 180, 0.3) 100%
+                rgba(75, 115, 215, 0.3) 100%
               ),
               radial-gradient(circle at 50% 50%, rgba(245, 245, 245, 0.6), transparent 50%)
             `,
@@ -629,7 +628,7 @@ const NoisePad = () => {
           </div>
           <div className="flex items-center justify-center gap-1.5">
             <div
-              className="w-3 h-3 rounded-full"
+              className="w-2.5 h-2.5 rounded-full"
               style={{ backgroundColor: interpolatedColor.color }}
             ></div>
             <div className="font-medium text-gray-700">{interpolatedColor.name}</div>
