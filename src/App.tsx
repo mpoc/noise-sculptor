@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import * as Tone from 'tone';
 
+import { Button } from './components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './components/ui/collapsible';
+import { Slider } from './components/ui/slider';
+
 const NoisePad = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [position, setPosition] = useState({ x: 50, y: 50 });
@@ -9,8 +13,10 @@ const NoisePad = () => {
     type: "lowpass",
     rolloff: -24,
     crossfadePosition: 0.5, // 0-1 value for rolloff crossfade visualization
-    filterBlend: 0.5 // 0-1 value for LPF/HPF blend
+    filterBlend: 0.5, // 0-1 value for LPF/HPF blend
+    resonance: 1 // Default Q value (no resonance)
   });
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const padRef = useRef(null);
   const noiseRef = useRef(null);
@@ -49,38 +55,44 @@ const NoisePad = () => {
     filter12Ref.current = new Tone.Filter({
       frequency: 20000,
       type: "lowpass",
-      rolloff: -12
+      rolloff: -12,
+      Q: 1
     });
     
     filter24Ref.current = new Tone.Filter({
       frequency: 20000,
       type: "lowpass",
-      rolloff: -24
+      rolloff: -24,
+      Q: 1
     });
     
     filter48Ref.current = new Tone.Filter({
       frequency: 20000,
       type: "lowpass",
-      rolloff: -48
+      rolloff: -48,
+      Q: 1
     });
     
     // Create HPF filters with different rolloffs
     hpf12Ref.current = new Tone.Filter({
       frequency: 20,
       type: "highpass",
-      rolloff: -12
+      rolloff: -12,
+      Q: 1
     });
     
     hpf24Ref.current = new Tone.Filter({
       frequency: 20,
       type: "highpass",
-      rolloff: -24
+      rolloff: -24,
+      Q: 1
     });
     
     hpf48Ref.current = new Tone.Filter({
       frequency: 20,
       type: "highpass",
-      rolloff: -48
+      rolloff: -48,
+      Q: 1
     });
     
     // Create crossfaders between the same rolloffs (LPF <-> HPF)
@@ -227,11 +239,13 @@ const NoisePad = () => {
     // Update all LPF filters
     [filter12Ref.current, filter24Ref.current, filter48Ref.current].forEach(filter => {
       filter.frequency.value = lpfFreq;
+      filter.Q.value = filterValues.resonance;
     });
     
     // Update all HPF filters
     [hpf12Ref.current, hpf24Ref.current, hpf48Ref.current].forEach(filter => {
       filter.frequency.value = hpfFreq;
+      filter.Q.value = filterValues.resonance;
     });
     
     // Update the LPF/HPF crossfade for each rolloff pair
@@ -245,9 +259,10 @@ const NoisePad = () => {
       type: filterType,
       rolloff: Math.round(rolloff),
       crossfadePosition: crossfadePosition,
-      filterBlend: filterBlend
+      filterBlend: filterBlend,
+      resonance: filterValues.resonance
     });
-  }, [position]);
+  }, [position, filterValues.resonance]);
 
   // Draw waveform function
   const drawWaveform = () => {
@@ -535,6 +550,32 @@ const NoisePad = () => {
     };
   };
 
+  // Handle resonance changes
+  const handleResonanceChange = (value) => {
+    const newResonance = parseFloat(value);
+    
+    // Update all filters immediately
+    if (filter12Ref.current && filter24Ref.current && filter48Ref.current &&
+        hpf12Ref.current && hpf24Ref.current && hpf48Ref.current) {
+      
+      // Update LPF filters
+      [filter12Ref.current, filter24Ref.current, filter48Ref.current].forEach(filter => {
+        filter.Q.value = newResonance;
+      });
+      
+      // Update HPF filters
+      [hpf12Ref.current, hpf24Ref.current, hpf48Ref.current].forEach(filter => {
+        filter.Q.value = newResonance;
+      });
+    }
+    
+    // Update state
+    setFilterValues({
+      ...filterValues,
+      resonance: newResonance
+    });
+  };
+
   // Get interpolated color
   const interpolatedColor = getInterpolatedColor();
 
@@ -637,17 +678,17 @@ const NoisePad = () => {
         </div>
       </div>
 
-      {/* Minimal play button */}
-      <button
-        onClick={togglePlay}
-        className={`px-6 py-1.5 rounded-full text-sm transition-colors ${
+      {/* Play button using shadcn UI Button with custom styling */}
+      <Button
+        onClick={(e) => togglePlay(e)}
+        className={`px-6 py-1.5 rounded-full text-sm font-medium h-auto ${
           isPlaying
-            ? 'bg-black text-white'
-            : 'bg-gray-100 text-gray-800 border border-gray-200'
+            ? 'bg-black text-white hover:bg-black/90 border-transparent'
+            : 'bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-200'
         }`}
       >
         {isPlaying ? 'Stop' : 'Play'}
-      </button>
+      </Button>
 
       {/* Minimal instruction - placed right below play button */}
       <div className="mt-1.5 mb-2 text-xs text-gray-400 text-center">
@@ -697,7 +738,16 @@ const NoisePad = () => {
                 opacity: Math.max(0, 1 - filterValues.filterBlend * 1.5),
                 transition: 'all 0.1s'
               }}
-            ></div>
+            >
+              {/* Resonance peak for LPF */}
+              {filterValues.resonance > 1 && filterValues.filterBlend < 0.5 && (
+                <div className="absolute h-full" style={{
+                  left: `${Math.min(95, Math.max(5, (Math.log10(filterValues.frequency) - 1) * 23))}%`,
+                  width: `${Math.min(10, (filterValues.resonance - 1) * 1.5)}%`,
+                  background: `radial-gradient(ellipse 50% 70% at center, rgba(50,200,50,${Math.min(0.7, (filterValues.resonance - 1) * 0.07)}), transparent)`,
+                }}></div>
+              )}
+            </div>
             
             <div 
               className="absolute h-8 top-1 left-0 right-0"
@@ -710,7 +760,16 @@ const NoisePad = () => {
                 opacity: Math.max(0, filterValues.filterBlend * 1.5 - 0.5),
                 transition: 'all 0.1s'
               }}
-            ></div>
+            >
+              {/* Resonance peak for HPF */}
+              {filterValues.resonance > 1 && filterValues.filterBlend > 0.5 && (
+                <div className="absolute h-full" style={{
+                  left: `${Math.min(95, Math.max(5, (Math.log10(filterValues.frequency) - 1) * 23))}%`,
+                  width: `${Math.min(10, (filterValues.resonance - 1) * 1.5)}%`,
+                  background: `radial-gradient(ellipse 50% 70% at center, rgba(50,200,50,${Math.min(0.7, (filterValues.resonance - 1) * 0.07)}), transparent)`,
+                }}></div>
+              )}
+            </div>
             
             {/* Center line */}
             <div className="h-px w-full bg-gray-300 opacity-40"></div>
@@ -718,6 +777,71 @@ const NoisePad = () => {
         </div>
       </div>
 
+      {/* Advanced section using shadcn UI Collapsible - simplified */}
+      <Collapsible 
+        open={showAdvanced} 
+        onOpenChange={setShowAdvanced}
+        className="w-full"
+      >
+        <CollapsibleTrigger asChild>
+          <Button 
+            variant="ghost"
+            size="sm"
+            className="mt-4 flex items-center gap-1.5 rounded-full border border-gray-100 bg-gray-50 hover:bg-gray-100 text-gray-600 px-3 py-1 text-xs mx-auto shadow-none"
+          >
+            <span className="font-medium">{showAdvanced ? "Close" : "Advanced"}</span>
+            <svg 
+              className={`w-3 h-3 transition-transform ${showAdvanced ? "rotate-180" : ""}`} 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24" 
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </Button>
+        </CollapsibleTrigger>
+        
+        <CollapsibleContent className="w-full">
+          <div className="w-full mt-3 pt-2 bg-gray-50/50 rounded-lg p-3">
+            <div className="mb-2.5">
+              <div className="flex justify-between items-center mb-1.5">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-1.5 h-1.5 bg-black rounded-full opacity-70"></div>
+                  <span className="text-xs font-medium text-gray-700">Resonance</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">{filterValues.resonance.toFixed(1)}</span>
+                  <button 
+                    onClick={() => handleResonanceChange(1)}
+                    className="text-[10px] text-gray-500 hover:text-gray-700 transition-colors"
+                    title="Reset to default"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
+                      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                      <path d="M3 3v5h5" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div className="relative">
+                <Slider
+                  min={0.1}
+                  max={10}
+                  step={0.1}
+                  value={[filterValues.resonance]}
+                  onValueChange={(values) => handleResonanceChange(values[0])}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-[9px] text-gray-400 mt-1.5 px-0.5">
+                  <span>Flat</span>
+                  <span>Resonant</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 };
