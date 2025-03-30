@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import * as Tone from 'tone';
 
 import { Button } from './components/ui/button';
@@ -23,32 +23,32 @@ const NoisePad = () => {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showGridLines, setShowGridLines] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const padRef = useRef(null);
-  const noiseRef = useRef(null);
+  const padRef = useRef<HTMLDivElement>(null);
+  const noiseRef = useRef<Tone.Noise | null>(null);
 
   // LPF filters with different rolloffs
-  const filter12Ref = useRef(null);
-  const filter24Ref = useRef(null);
-  const filter48Ref = useRef(null);
+  const filter12Ref = useRef<Tone.Filter | null>(null);
+  const filter24Ref = useRef<Tone.Filter | null>(null);
+  const filter48Ref = useRef<Tone.Filter | null>(null);
 
   // HPF filters with different rolloffs
-  const hpf12Ref = useRef(null);
-  const hpf24Ref = useRef(null);
-  const hpf48Ref = useRef(null);
+  const hpf12Ref = useRef<Tone.Filter | null>(null);
+  const hpf24Ref = useRef<Tone.Filter | null>(null);
+  const hpf48Ref = useRef<Tone.Filter | null>(null);
 
   // Filter type crossfaders (LPF <-> HPF)
-  const xf12Ref = useRef(null);
-  const xf24Ref = useRef(null);
-  const xf48Ref = useRef(null);
+  const xf12Ref = useRef<Tone.CrossFade | null>(null);
+  const xf24Ref = useRef<Tone.CrossFade | null>(null);
+  const xf48Ref = useRef<Tone.CrossFade | null>(null);
 
   // Rolloff crossfaders
-  const crossfade12_24Ref = useRef(null);
-  const crossfade24_48Ref = useRef(null);
-  const masterCrossfadeRef = useRef(null);
+  const crossfade12_24Ref = useRef<Tone.CrossFade | null>(null);
+  const crossfade24_48Ref = useRef<Tone.CrossFade | null>(null);
+  const masterCrossfadeRef = useRef<Tone.CrossFade | null>(null);
 
-  const analyserRef = useRef(null);
-  const canvasRef = useRef(null);
-  const animationRef = useRef(null);
+  const analyserRef = useRef<Tone.Analyser | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animationRef = useRef<number | null>(null);
 
   // Initialize audio components
   useEffect(() => {
@@ -248,19 +248,25 @@ const NoisePad = () => {
 
     // Update all LPF filters
     [filter12Ref.current, filter24Ref.current, filter48Ref.current].forEach(filter => {
-      filter.frequency.value = lpfFreq;
-      filter.Q.value = filterValues.resonance;
+      if (filter) {
+        filter.frequency.value = lpfFreq;
+        filter.Q.value = filterValues.resonance;
+      }
     });
 
     // Update all HPF filters
     [hpf12Ref.current, hpf24Ref.current, hpf48Ref.current].forEach(filter => {
-      filter.frequency.value = hpfFreq;
-      filter.Q.value = filterValues.resonance;
+      if (filter) {
+        filter.frequency.value = hpfFreq;
+        filter.Q.value = filterValues.resonance;
+      }
     });
 
     // Update the LPF/HPF crossfade for each rolloff pair
     [xf12Ref.current, xf24Ref.current, xf48Ref.current].forEach(xf => {
-      xf.fade.value = filterBlend;
+      if (xf) {
+        xf.fade.value = filterBlend;
+      }
     });
 
     // Update state for display
@@ -280,6 +286,8 @@ const NoisePad = () => {
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
     const width = canvas.width;
     const height = canvas.height;
 
@@ -297,9 +305,12 @@ const NoisePad = () => {
     ctx.beginPath();
 
     // Draw the waveform
-    for (let i = 0; i < waveform.length; i++) {
-      const x = (i / waveform.length) * width;
-      const y = ((waveform[i] + 1) / 2) * height;
+    const typedWaveform = waveform as Float32Array;
+    for (let i = 0; i < typedWaveform.length; i++) {
+      const x = (i / typedWaveform.length) * width;
+      // Convert Float32Array value to number
+      const value = Number(typedWaveform[i]);
+      const y = ((value + 1) / 2) * height;
 
       if (i === 0) {
         ctx.moveTo(x, y);
@@ -329,7 +340,9 @@ const NoisePad = () => {
       // Clear canvas
       if (canvasRef.current) {
         const ctx = canvasRef.current.getContext('2d');
-        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+        if (ctx) {
+          ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+        }
       }
     }
 
@@ -353,7 +366,7 @@ const NoisePad = () => {
     }
   }, []);
 
-  const togglePlay = async (e) => {
+  const togglePlay = async (e: React.MouseEvent) => {
     // Prevent event propagation so it doesn't trigger pad interaction
     e.stopPropagation();
 
@@ -361,16 +374,16 @@ const NoisePad = () => {
       await Tone.start();
     }
 
-    if (isPlaying) {
+    if (isPlaying && noiseRef.current) {
       noiseRef.current.stop();
-    } else {
+    } else if (noiseRef.current) {
       noiseRef.current.start();
     }
     setIsPlaying(!isPlaying);
   };
 
   // Handle pad interaction (mouse/touch move)
-  const handlePadMove = (e) => {
+  const handlePadMove = (e: MouseEvent | TouchEvent) => {
     // Only handle move if we're dragging
     if (!isDragging || !padRef.current) return;
 
@@ -380,8 +393,8 @@ const NoisePad = () => {
     }
 
     // Handle both mouse and touch events
-    const clientX = e.clientX || (e.touches && e.touches[0]?.clientX);
-    const clientY = e.clientY || (e.touches && e.touches[0]?.clientY);
+    const clientX = 'clientX' in e ? e.clientX : (e.touches && e.touches[0]?.clientX);
+    const clientY = 'clientY' in e ? e.clientY : (e.touches && e.touches[0]?.clientY);
 
     if (!clientX || !clientY) return;
 
@@ -393,10 +406,10 @@ const NoisePad = () => {
   };
 
   // Animation ref to cancel animation frames if needed
-  const randomAnimRef = useRef(null);
+  const randomAnimRef = useRef<number | null>(null);
   
   // Generate random noise position with animation
-  const generateRandomNoise = (e) => {
+  const generateRandomNoise = (e: React.MouseEvent) => {
     // Prevent event propagation so it doesn't trigger pad interaction
     e.stopPropagation();
     
@@ -418,7 +431,7 @@ const NoisePad = () => {
     const startTime = performance.now();
     
     // Animation function
-    const animate = (currentTime) => {
+    const animate = (currentTime: number) => {
       const elapsed = currentTime - startTime;
       const progress = Math.min(elapsed / duration, 1);
       
@@ -445,7 +458,7 @@ const NoisePad = () => {
   };
   
   // Reset to center position with animation
-  const resetPosition = (e) => {
+  const resetPosition = (e: React.MouseEvent) => {
     // Prevent event propagation
     e.stopPropagation();
     
@@ -467,7 +480,7 @@ const NoisePad = () => {
     const startTime = performance.now();
     
     // Animation function
-    const animate = (currentTime) => {
+    const animate = (currentTime: number) => {
       const elapsed = currentTime - startTime;
       const progress = Math.min(elapsed / duration, 1);
       
@@ -503,7 +516,7 @@ const NoisePad = () => {
   }, []);
 
   // Handle pad click/touch
-  const handlePadClick = (e) => {
+  const handlePadClick = (e: React.MouseEvent | React.TouchEvent) => {
     // Prevent default actions
     if (e.cancelable) {
       e.preventDefault();
@@ -516,8 +529,8 @@ const NoisePad = () => {
     if (!padRef.current) return;
 
     // Get coordinates
-    const clientX = e.clientX || (e.touches && e.touches[0]?.clientX);
-    const clientY = e.clientY || (e.touches && e.touches[0]?.clientY);
+    const clientX = 'clientX' in e ? e.clientX : (e.touches && e.touches[0]?.clientX);
+    const clientY = 'clientY' in e ? e.clientY : (e.touches && e.touches[0]?.clientY);
 
     if (!clientX || !clientY) return;
 
@@ -530,7 +543,7 @@ const NoisePad = () => {
   };
 
   // Handle the start of interaction (mousedown/touchstart)
-  const handlePadStart = (e) => {
+  const handlePadStart = (e: React.MouseEvent | React.TouchEvent) => {
     // Prevent default
     if (e.cancelable) {
       e.preventDefault();
@@ -553,7 +566,7 @@ const NoisePad = () => {
 
   // Add/remove event listeners
   useEffect(() => {
-    const handleMove = (e) => handlePadMove(e);
+    const handleMove = (e: MouseEvent | TouchEvent) => handlePadMove(e);
     const handleEnd = () => handleInteractionEnd();
 
     if (isDragging) {
@@ -671,8 +684,8 @@ const NoisePad = () => {
   };
 
   // Handle resonance changes
-  const handleResonanceChange = (value) => {
-    const newResonance = parseFloat(value);
+  const handleResonanceChange = (value: number) => {
+    const newResonance = parseFloat(value.toString());
 
     // Update all filters immediately
     if (filter12Ref.current && filter24Ref.current && filter48Ref.current &&
@@ -680,12 +693,12 @@ const NoisePad = () => {
 
       // Update LPF filters
       [filter12Ref.current, filter24Ref.current, filter48Ref.current].forEach(filter => {
-        filter.Q.value = newResonance;
+        if (filter) filter.Q.value = newResonance;
       });
 
       // Update HPF filters
       [hpf12Ref.current, hpf24Ref.current, hpf48Ref.current].forEach(filter => {
-        filter.Q.value = newResonance;
+        if (filter) filter.Q.value = newResonance;
       });
     }
 
